@@ -6,6 +6,8 @@ import logger from "./utils/logger";
 import bcrypt from "bcrypt";
 import jtw from "./utils/jwt";
 import { TokenPayload } from "./types";
+import menuService from "./services/menu.service";
+import { buildMenuTree } from "./utils/buildMenu";
 
 const app = express();
 
@@ -119,6 +121,17 @@ app.post("/select-role", async (req, res) => {
     return;
   } catch (error) {
     res.status(500).json({ message: "failed to get employee role", error });
+  }
+});
+
+app.get("/menus", async (req, res) => {
+  const role_id = 1;
+  try {
+    const menus = await menuService.getAllMenus(role_id);
+    const result = buildMenuTree(menus);
+    res.json({ result: result });
+  } catch (error) {
+    res.status(500).send("internal server error");
   }
 });
 

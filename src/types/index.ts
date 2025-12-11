@@ -26,3 +26,11 @@ export interface EmployeeRow {
   role_id: number;
   role_name: string;
 }
+
+export interface Menu {
+  menu_id: number;
+  name: string;
+  parent_id: number;
+  url: string;
+  sort_order: number;
+}
