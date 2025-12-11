@@ -8,16 +8,21 @@ import jtw from "./utils/jwt";
 import { TokenPayload } from "./types";
 import menuService from "./services/menu.service";
 import { buildMenuTree } from "./utils/buildMenu";
+import { authenticateJWT, validateData } from "./middlewares";
+import cors from "cors";
+import menuRepository from "./repositories/menu.repository";
+import { Menu } from "./schemas";
 
 const app = express();
 
 app.use(express.json());
+app.use(cors());
 
 app.get("/", (req, res) => {
   res.send("hello, world!");
 });
 
-app.post("/employees", async (req, res) => {
+app.post("/register", async (req, res) => {
   const { username, password } = req.body;
   try {
     const insertedId = await employeeService.registerEmployee(
@@ -98,7 +103,6 @@ app.post("/select-role", async (req, res) => {
   const { employee_id, role_id } = req.body;
 
   try {
-    // get role name given employee_id, role_id
     const emp = await employeeService.getRole(employee_id, role_id);
     if (emp == null) {
       res.status(400).json({ message: "failed to get employee role" });
@@ -124,8 +128,9 @@ app.post("/select-role", async (req, res) => {
   }
 });
 
-app.get("/menus", async (req, res) => {
-  const role_id = 1;
+app.get("/menus", authenticateJWT, async (req, res) => {
+  logger.info(req.user);
+  const { role_id } = req?.user as TokenPayload;
   try {
     const menus = await menuService.getAllMenus(role_id);
     const result = buildMenuTree(menus);
@@ -135,6 +140,41 @@ app.get("/menus", async (req, res) => {
   }
 });
 
+app.post("/menus", authenticateJWT, validateData(Menu), async (req, res) => {
+  const { role } = req.user!;
+  if (role != "admin") {
+    res.status(401).send("only admin can create menu");
+    return;
+  }
+
+  const { name, parent_id, url, sort_order } = req.body;
+  try {
+    const insertedId = await menuRepository.addMenu(
+      name,
+      parent_id,
+      url,
+      sort_order
+    );
+    if (insertedId == -1) {
+      res.status(400).json({
+        status: "failed",
+        message: "parent_id is invalid or not found",
+      });
+      return;
+    }
+    res.status(201).json({
+      message: "menu inserted successfully",
+      insertedId,
+    });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: "internal server error" });
+  }
+});
+
+app.post("/permission", (req, res) => {
+  res.send("set permission");
+});
+
 app.listen(3000, () => {
   console.log("server running on port 3000");
 });
@@ -142,7 +182,7 @@ app.listen(3000, () => {
 declare global {
   namespace Express {
     interface Request {
-      user?: string | object | JwtPayload;
+      user?: TokenPayload;
     }
   }
 }

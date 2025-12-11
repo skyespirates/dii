@@ -10,6 +10,8 @@ export interface TokenPayload {
   employee_id: number;
   role_id: number;
   role: string;
+  iat?: number;
+  exp?: number;
 }
 
 export interface EmployeeRole {
@@ -33,4 +35,8 @@ export interface Menu {
   parent_id: number;
   url: string;
   sort_order: number;
+}
+
+export interface InsertedId {
+  menu_id: number;
 }

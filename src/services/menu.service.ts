@@ -11,4 +11,28 @@ async function getAllMenus(role_id: number) {
   }
 }
 
-export default { getAllMenus };
+async function createNewMenu(
+  name: string,
+  parent_id: number,
+  url: string,
+  sort_order: number
+): Promise<number> {
+  try {
+    const exists = await menuRepository.isExists(parent_id);
+    if (!exists) {
+      return -1;
+    }
+    const insertedId = await menuRepository.addMenu(
+      name,
+      parent_id,
+      url,
+      sort_order
+    );
+    return insertedId;
+  } catch (error) {
+    logger.error(error);
+    throw new Error("menu service: failed to create new menu");
+  }
+}
+
+export default { getAllMenus, createNewMenu };
