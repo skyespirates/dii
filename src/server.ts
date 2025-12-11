@@ -33,14 +33,21 @@ app.post("/employees", async (req, res) => {
   }
 });
 
+interface Roles {
+  role_id: number;
+  name: string;
+}
+
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
   try {
-    const emp = await employeeService.getEmployee(username);
-    if (emp == null) {
+    const employee = await employeeService.getByUsername(username);
+    if (employee == null) {
       res.status(401).json({ message: "invalid username or password" });
       return;
     }
+
+    const emp = employee[0];
 
     const isMatch = await bcrypt.compare(password, emp.password);
     if (!isMatch) {
@@ -48,9 +55,57 @@ app.post("/login", async (req, res) => {
       return;
     }
 
+    if (employee.length == 1) {
+      const payload: TokenPayload = {
+        employee_id: emp.employee_id,
+        role_id: emp.role_id,
+        role: emp.role_name,
+      };
+
+      const token = jtw.generateToken(payload);
+
+      const data = {
+        message: "login successfully",
+        access_token: token,
+      };
+
+      res.json(data);
+      return;
+    }
+
+    let roles: Roles[] = [];
+
+    for (let e of employee) {
+      const role = {
+        role_id: e.role_id,
+        name: e.role_name,
+      };
+      roles.push(role);
+    }
+
+    res.json({
+      message: "select a role",
+      roles,
+    });
+  } catch (error) {
+    res.status(401).json({ message: "invalid username or password" });
+  }
+});
+
+app.post("/select-role", async (req, res) => {
+  const { employee_id, role_id } = req.body;
+
+  try {
+    // get role name given employee_id, role_id
+    const emp = await employeeService.getRole(employee_id, role_id);
+    if (emp == null) {
+      res.status(400).json({ message: "failed to get employee role" });
+      return;
+    }
     const payload: TokenPayload = {
       employee_id: emp.employee_id,
-      role: emp.role,
+      role_id: emp.role_id,
+      role: emp.role_name,
     };
 
     const token = jtw.generateToken(payload);
@@ -61,8 +116,9 @@ app.post("/login", async (req, res) => {
     };
 
     res.json(data);
+    return;
   } catch (error) {
-    res.status(401).json({ message: "invalid username or password" });
+    res.status(500).json({ message: "failed to get employee role", error });
   }
 });
 
