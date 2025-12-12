@@ -78,4 +78,23 @@ async function addMenu(
   }
 }
 
-export default { getMenu, addMenu, isExists, getMenuById };
+async function addPermission(
+  role_id: number,
+  menu_id: number
+): Promise<boolean> {
+  try {
+    const result = await pool.query(
+      "INSERT INTO role_menus (role_id, menu_id) VALUES ($1, $2)",
+      [role_id, menu_id]
+    );
+    if (result.rowCount == null || result.rowCount == 0) {
+      return false;
+    }
+    return true;
+  } catch (error) {
+    logger.error(error);
+    throw new Error("menu repository: failed to add permission");
+  }
+}
+
+export default { getMenu, addMenu, isExists, getMenuById, addPermission };

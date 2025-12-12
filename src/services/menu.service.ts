@@ -35,4 +35,17 @@ async function createNewMenu(
   }
 }
 
-export default { getAllMenus, createNewMenu };
+async function addMenuPermission(
+  role_id: number,
+  menu_id: number
+): Promise<boolean> {
+  try {
+    const succeed = await menuRepository.addPermission(role_id, menu_id);
+    return succeed;
+  } catch (error) {
+    logger.error(error);
+    throw new Error("menu service: failed to add menu permission");
+  }
+}
+
+export default { getAllMenus, createNewMenu, addMenuPermission };

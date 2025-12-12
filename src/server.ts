@@ -171,8 +171,24 @@ app.post("/menus", authenticateJWT, validateData(Menu), async (req, res) => {
   }
 });
 
-app.post("/permission", (req, res) => {
-  res.send("set permission");
+app.post("/permissions", async (req, res) => {
+  const { role_id, menu_id } = req.body;
+  try {
+    const succeed = await menuService.addMenuPermission(role_id, menu_id);
+    if (!succeed) {
+      res.json({
+        status: "failed",
+        message: `failed to add permission to menu_id: ${menu_id}`,
+      });
+      return;
+    }
+    res.json({
+      status: "success",
+      message: `role permission added to menu ${menu_id}`,
+    });
+  } catch (error) {
+    res.send(500).send("internal server error");
+  }
 });
 
 app.listen(3000, () => {
