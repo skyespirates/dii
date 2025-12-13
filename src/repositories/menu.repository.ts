@@ -97,4 +97,46 @@ async function addPermission(
   }
 }
 
-export default { getMenu, addMenu, isExists, getMenuById, addPermission };
+async function deleteMenu(menu_id: number): Promise<boolean> {
+  try {
+    const result = await pool.query("DELETE FROM menus WHERE menu_id = $1", [
+      menu_id,
+    ]);
+    if (result.rowCount == 0) {
+      return false;
+    }
+    return true;
+  } catch (error) {
+    logger.error(error);
+    throw new Error("menu repository: failed to delete menu");
+  }
+}
+
+async function updateMenu(m: Menu): Promise<Menu | null> {
+  let query =
+    "UPDATE menus SET name = $1, parent_id = $2, url = $3, sort_order = $4 WHERE menu_id = $5 RETURNING menu_id, name, parent_id, url, sort_order";
+  const args = [m.name, m.parent_id, m.url, m.sort_order, m.menu_id];
+  try {
+    const result = await pool.query<Menu>(query, args);
+    if (result.rowCount == 0) {
+      logger.info("failed to update menu");
+      return null;
+    }
+    return result.rows[0];
+  } catch (error) {
+    logger.error(error);
+    logger.info(query);
+    logger.info(args);
+    throw new Error("menu repository: failed to update menu");
+  }
+}
+
+export default {
+  getMenu,
+  addMenu,
+  isExists,
+  getMenuById,
+  addPermission,
+  deleteMenu,
+  updateMenu,
+};

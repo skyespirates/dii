@@ -9,12 +9,13 @@ interface InsertedResult {
 
 async function create(
   conn: PoolClient,
+  fullname: string,
   username: string,
   password: string
 ): Promise<number | null> {
   const query =
-    "INSERT INTO employees (username, password) VALUES ($1, $2) RETURNING employee_id";
-  const args = [username, password];
+    "INSERT INTO employees (fullname, username, password) VALUES ($1, $2, $3) RETURNING employee_id";
+  const args = [fullname, username, password];
   try {
     const result = await conn.query<InsertedResult>(query, args);
     if (result.rows.length == 0) {
@@ -23,7 +24,7 @@ async function create(
     return result.rows[0].employee_id;
   } catch (error) {
     logger.error(error);
-    throw new Error("repositories: failed to create employee");
+    throw new Error("employee repository: failed to create employee");
   }
 }
 

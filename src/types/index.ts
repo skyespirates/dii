@@ -8,8 +8,8 @@ export interface Employee {
 
 export interface TokenPayload {
   employee_id: number;
-  role_id: number;
-  role: string;
+  role_id?: number;
+  role?: string;
   iat?: number;
   exp?: number;
 }
@@ -39,4 +39,10 @@ export interface Menu {
 
 export interface InsertedId {
   menu_id: number;
+}
+
+export interface Roles {
+  role_id: number;
+  name: string;
+  description?: string;
 }

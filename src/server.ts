@@ -1,17 +1,23 @@
 import "dotenv/config";
 import express from "express";
-import { JwtPayload } from "jsonwebtoken";
 import employeeService from "./services/employee.service";
-import logger from "./utils/logger";
 import bcrypt from "bcrypt";
-import jtw from "./utils/jwt";
-import { TokenPayload } from "./types";
+import jwt from "./utils/jwt";
+import { TokenPayload, Roles, Menu as M } from "./types";
 import menuService from "./services/menu.service";
 import { buildMenuTree } from "./utils/buildMenu";
 import { authenticateJWT, validateData } from "./middlewares";
 import cors from "cors";
 import menuRepository from "./repositories/menu.repository";
-import { Menu } from "./schemas";
+import {
+  Login,
+  Menu,
+  MenuId,
+  Permission,
+  Register,
+  SelectRole,
+} from "./schemas";
+import roleService from "./services/role.service";
 
 const app = express();
 
@@ -22,10 +28,11 @@ app.get("/", (req, res) => {
   res.send("hello, world!");
 });
 
-app.post("/register", async (req, res) => {
-  const { username, password } = req.body;
+app.post("/register", validateData(Register), async (req, res) => {
+  const { fullname, username, password } = req.body;
   try {
     const insertedId = await employeeService.registerEmployee(
+      fullname,
       username,
       password
     );
@@ -35,17 +42,11 @@ app.post("/register", async (req, res) => {
     };
     res.status(201).json(data);
   } catch (error) {
-    logger.error(error);
-    res.status(500).send("internal server error");
+    res.status(500).json({ status: "error", error });
   }
 });
 
-interface Roles {
-  role_id: number;
-  name: string;
-}
-
-app.post("/login", async (req, res) => {
+app.post("/login", validateData(Login), async (req, res) => {
   const { username, password } = req.body;
   try {
     const employee = await employeeService.getByUsername(username);
@@ -62,17 +63,18 @@ app.post("/login", async (req, res) => {
       return;
     }
 
-    if (employee.length == 1) {
-      const payload: TokenPayload = {
-        employee_id: emp.employee_id,
-        role_id: emp.role_id,
-        role: emp.role_name,
-      };
+    const payload: TokenPayload = {
+      employee_id: emp.employee_id,
+    };
 
-      const token = jtw.generateToken(payload);
+    if (employee.length == 1) {
+      payload.role_id = emp.role_id;
+      payload.role = emp.role_name;
+
+      const token = jwt.generateToken(payload);
 
       const data = {
-        message: "login successfully",
+        message: "login single role successfully",
         access_token: token,
       };
 
@@ -90,16 +92,21 @@ app.post("/login", async (req, res) => {
       roles.push(role);
     }
 
-    res.json({
-      message: "select a role",
+    const token = jwt.generateToken(payload);
+
+    const result = {
+      message: "select role",
+      access_token: token,
       roles,
-    });
+    };
+
+    res.json(result);
   } catch (error) {
     res.status(401).json({ message: "invalid username or password" });
   }
 });
 
-app.post("/select-role", async (req, res) => {
+app.post("/roles/select", validateData(SelectRole), async (req, res) => {
   const { employee_id, role_id } = req.body;
 
   try {
@@ -114,7 +121,7 @@ app.post("/select-role", async (req, res) => {
       role: emp.role_name,
     };
 
-    const token = jtw.generateToken(payload);
+    const token = jwt.generateToken(payload);
 
     const data = {
       message: "login successfully",
@@ -129,9 +136,12 @@ app.post("/select-role", async (req, res) => {
 });
 
 app.get("/menus", authenticateJWT, async (req, res) => {
-  logger.info(req.user);
   const { role_id } = req?.user as TokenPayload;
   try {
+    if (!role_id) {
+      res.status(400).send("no role_id provided");
+      return;
+    }
     const menus = await menuService.getAllMenus(role_id);
     const result = buildMenuTree(menus);
     res.json({ result: result });
@@ -171,23 +181,133 @@ app.post("/menus", authenticateJWT, validateData(Menu), async (req, res) => {
   }
 });
 
-app.post("/permissions", async (req, res) => {
-  const { role_id, menu_id } = req.body;
-  try {
-    const succeed = await menuService.addMenuPermission(role_id, menu_id);
-    if (!succeed) {
+app.post(
+  "/permissions",
+  authenticateJWT,
+  validateData(Permission),
+  async (req, res) => {
+    const { role } = req.user!;
+    if (role != "admin") {
+      res.status(401).send("only admin can add permission");
+      return;
+    }
+
+    const { role_id, menu_id } = req.body;
+    try {
+      const succeed = await menuService.addMenuPermission(role_id, menu_id);
+      if (!succeed) {
+        res.json({
+          status: "failed",
+          message: `failed to add permission to menu_id: ${menu_id}`,
+        });
+        return;
+      }
       res.json({
-        status: "failed",
-        message: `failed to add permission to menu_id: ${menu_id}`,
+        status: "success",
+        message: `role permission added to menu ${menu_id}`,
       });
+    } catch (error) {
+      res.send(500).send("internal server error");
+    }
+  }
+);
+
+app.delete("/menus/:id", authenticateJWT, async (req, res) => {
+  const { role } = req.user!;
+  if (role != "admin") {
+    res.status(401).send("only admin can delete menu");
+    return;
+  }
+
+  const { id } = req.params;
+  const menu_id = parseInt(id);
+  try {
+    const succeed = await menuService.deleteMenu(menu_id);
+    if (!succeed) {
+      res.status(400).json({
+        status: "error",
+        message: "failed to delete menu_id: " + menu_id,
+      });
+      return;
+    }
+
+    res.json({ status: "success", message: "menu deleted successfully" });
+  } catch (error) {
+    res.send(500).json({ message: "error", error });
+  }
+});
+
+app.patch("/menus/:id", authenticateJWT, async (req, res) => {
+  const { role } = req.user!;
+  if (role != "admin") {
+    res.status(401).send("only admin can delete menu");
+    return;
+  }
+  const { id } = req.params;
+  const menu_id = parseInt(id);
+  const { name, url, sort_order } = req.body;
+  const m: M = {
+    menu_id,
+    name,
+    url,
+    sort_order,
+    parent_id: -1,
+  };
+  try {
+    const result = await menuService.updateMenu(m);
+    if (result == null) {
+      res
+        .status(400)
+        .json({ status: "error", message: "failed to update menu" });
       return;
     }
     res.json({
       status: "success",
-      message: `role permission added to menu ${menu_id}`,
+      message: "menu updated successfully",
+      result,
     });
   } catch (error) {
-    res.send(500).send("internal server error");
+    res.send(500).json({ message: "error", error });
+  }
+});
+
+app.post("/roles", authenticateJWT, async (req, res) => {
+  const { role } = req.user!;
+  if (role != "admin") {
+    res.status(401).send("only admin can delete menu");
+    return;
+  }
+
+  const { name } = req.body;
+  try {
+    const created = await roleService.createRole(name);
+    if (!created) {
+      res
+        .status(400)
+        .json({ status: "error", message: "failed to create a new role" });
+      return;
+    }
+
+    res.json({
+      status: "success",
+      message: "role created successfully",
+    });
+  } catch (error) {
+    res.send(500).json({ message: "error", error });
+  }
+});
+
+app.get("/roles", authenticateJWT, async (req, res) => {
+  const { role } = req.user!;
+  if (role != "admin") {
+    res.status(401).send("only admin can delete menu");
+    return;
+  }
+  try {
+    const roles = await roleService.getRole();
+    res.json({ status: "success", message: "get roles successfully", roles });
+  } catch (error) {
+    res.send(500).json({ message: "error", error });
   }
 });
 

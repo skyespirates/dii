@@ -6,6 +6,7 @@ import { EmployeeRole, EmployeeRow } from "../types";
 import pool from "../infra/db";
 
 async function registerEmployee(
+  fullname: string,
   username: string,
   password: string
 ): Promise<number | null> {
@@ -15,6 +16,7 @@ async function registerEmployee(
     const hashed_password = await bcrypt.hash(password, 10);
     const employee_id = await employeeRepository.create(
       conn,
+      fullname,
       username,
       hashed_password
     );
