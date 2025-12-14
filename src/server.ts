@@ -135,6 +135,20 @@ app.post("/roles/select", validateData(SelectRole), async (req, res) => {
   }
 });
 
+app.get("/roles/user", async (req, res) => {
+  try {
+    const userRoles = await roleService.getUserRole();
+    const data = {
+      status: "success",
+      message: "get all roles for all users",
+      users: userRoles,
+    };
+    res.json(data);
+  } catch (error) {
+    res.status(500).send("internal server error");
+  }
+});
+
 app.get("/menus", authenticateJWT, async (req, res) => {
   const { role_id } = req?.user as TokenPayload;
   try {

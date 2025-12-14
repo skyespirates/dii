@@ -22,4 +22,33 @@ async function getRole(): Promise<Roles[]> {
   }
 }
 
-export default { createRole, getRole };
+type Role = {
+  username: string;
+  roles: string[];
+};
+
+async function getUserRole(): Promise<Role[]> {
+  try {
+    const userRoles = await roleRepository.getUserRoles();
+    const rolesMap = new Map<string, Role>();
+
+    for (const r of userRoles) {
+      if (!rolesMap.has(r.username)) {
+        rolesMap.set(r.username, {
+          username: r.username,
+          roles: [r.role_name],
+        });
+      } else {
+        rolesMap.get(r.username)!.roles.push(r.role_name);
+      }
+    }
+
+    const result: Role[] = Array.from(rolesMap.values());
+    return result;
+  } catch (error) {
+    logger.error(error);
+    throw new Error("role service: failed to get roles of all users");
+  }
+}
+
+export default { createRole, getRole, getUserRole };

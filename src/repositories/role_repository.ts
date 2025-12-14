@@ -2,7 +2,7 @@ import { PoolClient } from "pg";
 import logger from "../utils/logger";
 import { boolean } from "zod";
 import pool from "../infra/db";
-import { Roles } from "../types";
+import { Roles, UserRole } from "../types";
 
 async function setEmployeeRole(conn: PoolClient, employee_id: number) {
   try {
@@ -45,8 +45,25 @@ async function get(): Promise<Roles[]> {
   }
 }
 
+async function getUserRoles(): Promise<UserRole[]> {
+  const query = `SELECT 
+  e.employee_id, e.username, r.role_id, r.name as role_name
+  FROM employees e
+  JOIN employee_roles er ON er.employee_id =  e.employee_id
+  JOIN roles r ON r.role_id = er.role_id ORDER BY e.employee_id
+  `;
+  try {
+    const result = await pool.query<UserRole>(query);
+    return result.rows;
+  } catch (error) {
+    logger.error(error);
+    throw new Error("role repository: failed to get roles of all users");
+  }
+}
+
 export default {
   setEmployeeRole,
   create,
   get,
+  getUserRoles,
 };

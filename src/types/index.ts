@@ -46,3 +46,10 @@ export interface Roles {
   name: string;
   description?: string;
 }
+
+export interface UserRole {
+  employee_id: number;
+  username: string;
+  role_id: number;
+  role_name: string;
+}
