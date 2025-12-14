@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import type { Express } from "express";
 import employeeService from "./services/employee.service";
 import bcrypt from "bcrypt";
 import jwt from "./utils/jwt";
@@ -19,10 +20,15 @@ import {
 } from "./schemas";
 import roleService from "./services/role.service";
 
+import swaggerUi from "swagger-ui-express";
+import { openApiDoc } from "./openapi-doc";
+
 const app = express();
 
 app.use(express.json());
 app.use(cors());
+
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDoc));
 
 app.get("/", (req, res) => {
   res.send("hello, world!");
