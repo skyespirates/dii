@@ -26,12 +26,14 @@ registry.registerComponent("securitySchemes", "bearerAuth", {
 registry.registerPath({
   method: "post",
   path: "/register",
+  tags: ["user"],
   responses: {},
 });
 
 registry.registerPath({
   method: "post",
   path: "/login",
+  tags: ["auth"],
   request: {
     body: {
       content: {
@@ -56,6 +58,8 @@ registry.registerPath({
 registry.registerPath({
   method: "post",
   path: "/roles/select",
+  tags: ["roles"],
+  description: "generate token based on user selected role",
   request: {
     body: {
       content: {
@@ -67,7 +71,7 @@ registry.registerPath({
   },
   responses: {
     200: {
-      description: "generate token based on user selected role",
+      description: "",
       content: {
         "application/json": {
           schema: LoginResponseSchema,
@@ -84,9 +88,11 @@ registry.registerPath({
 registry.registerPath({
   method: "get",
   path: "/roles/user",
+  tags: ["roles"],
+  description: "Get roles of every user",
   responses: {
     200: {
-      description: "Get all roles of every user",
+      description: "",
       content: {
         "application/json": {
           schema: ApiResponseSchema,
@@ -99,10 +105,12 @@ registry.registerPath({
 registry.registerPath({
   method: "get",
   path: "/menus",
+  tags: ["menus"],
+  description: "Get all menus that assigned to current role",
   security: [{ bearerAuth: [] }],
   responses: {
     200: {
-      description: "Get all menus that assigned to current role",
+      description: "",
       content: {
         "application/json": {
           schema: MenuSchemaResponse,
@@ -115,6 +123,8 @@ registry.registerPath({
 registry.registerPath({
   method: "post",
   path: "/menus",
+  tags: ["menus"],
+  description: "Create menu",
   security: [{ bearerAuth: [] }],
   request: {
     body: {
@@ -140,8 +150,9 @@ registry.registerPath({
 registry.registerPath({
   method: "post",
   path: "/permissions",
+  tags: ["permissions"],
+  description: "Allowing which menu can access by a role",
   security: [{ bearerAuth: [] }],
-  description: "allow specific user to view specific menu",
   request: {
     body: {
       content: {
@@ -166,8 +177,9 @@ registry.registerPath({
 registry.registerPath({
   method: "delete",
   path: "/menus/{id}",
+  tags: ["menus"],
+  description: "Delete menu",
   security: [{ bearerAuth: [] }],
-  description: "delete menu by menu_id",
   request: {
     params: z.object({
       id: z.number().openapi({ example: 12 }),
@@ -193,6 +205,8 @@ registry.registerPath({
 registry.registerPath({
   method: "patch",
   path: "/menus",
+  tags: ["menus"],
+  description: "Edit menu",
   security: [{ bearerAuth: [] }],
   responses: {},
 });
@@ -200,6 +214,7 @@ registry.registerPath({
 registry.registerPath({
   method: "post",
   path: "/roles",
+  tags: ["roles"],
   security: [{ bearerAuth: [] }],
   description: "create new roles",
   request: {
@@ -233,10 +248,12 @@ registry.registerPath({
 registry.registerPath({
   method: "get",
   path: "/roles",
+  tags: ["roles"],
+  description: "get role list",
   security: [{ bearerAuth: [] }],
   responses: {
     200: {
-      description: "get roles",
+      description: "",
       content: {
         "application/json": {
           schema: z.object({

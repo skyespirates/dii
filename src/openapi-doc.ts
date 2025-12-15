@@ -7,7 +7,7 @@ export const openApiDoc = new OpenApiGeneratorV3(
 ).generateDocument({
   openapi: "3.0.0",
   info: {
-    title: "My API",
+    title: "Access Management API",
     version: "1.0.0",
   },
 });
