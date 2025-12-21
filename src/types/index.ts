@@ -54,8 +54,8 @@ export interface UserRole {
   role_name: string;
 }
 
-export type GoogleUser = {
-  google_id: string;
+export type Users = {
+  id: string;
   display_name: string;
   email: string;
   profile_photo: string;
