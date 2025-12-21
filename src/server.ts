@@ -4,24 +4,24 @@ import type { Request, Response, NextFunction } from "express";
 import employeeService from "./services/employee.service";
 import bcrypt from "bcrypt";
 import jwt from "./utils/jwt";
-import { TokenPayload, Roles, Menu as M, GoogleUser } from "./types";
+import { TokenPayload, Roles, Menu as M, Users } from "./types";
 import menuService from "./services/menu.service";
 import { buildMenuTree } from "./utils/buildMenu";
 import { authenticateJWT, validateData } from "./middlewares";
 import cors from "cors";
 import menuRepository from "./repositories/menu.repository";
 import { createUser, getUser } from "./repositories/user.repository";
-import {
-  Login,
-  Menu,
-  MenuId,
-  Permission,
-  Register,
-  SelectRole,
-} from "./schemas";
+import { Login, Menu, Permission, Register, SelectRole } from "./schemas";
 import roleService from "./services/role.service";
 import passport from "passport";
-import { Strategy, StrategyOptions } from "passport-google-oauth20";
+import {
+  Strategy as GoogleStrategy,
+  StrategyOptions as GoogleStrategyOptions,
+} from "passport-google-oauth20";
+import {
+  Strategy as GithubStrategy,
+  StrategyOptions as GithubStrategyOptions,
+} from "passport-github2";
 import session from "express-session";
 import pgSession from "connect-pg-simple";
 
@@ -31,20 +31,53 @@ import swaggerUi from "swagger-ui-express";
 import { openApiDoc } from "./openapi-doc";
 import pool from "./infra/db";
 
-const options: StrategyOptions = {
+const githubOptions: GithubStrategyOptions = {
+  clientID: process.env.GITHUB_ID!,
+  clientSecret: process.env.GITHUB_SECRET!,
+  callbackURL: "/auth/github/callback",
+};
+
+const githubStrategy = new GithubStrategy(
+  githubOptions,
+  // @ts-ignore
+  async (accessToken, refreshToken, profile, done) => {
+    try {
+      if (!profile) throw new Error("profile not found");
+      const user = await getUser(profile.id);
+      if (user == undefined) {
+        const u: Users = {
+          id: profile.id,
+          display_name: profile.username,
+          email: profile.emails[0].value,
+          profile_photo: profile.photos[0].value,
+        };
+        console.log(u);
+        const newUser = await createUser(u);
+        if (!newUser) throw new Error("failed to create user");
+        done(null, newUser);
+      } else {
+        done(null, user);
+      }
+    } catch (error) {
+      done(error, null);
+    }
+  }
+);
+
+const googleOptions: GoogleStrategyOptions = {
   clientID: process.env.GOOGLE_ID!,
   clientSecret: process.env.GOOGLE_SECRET!,
   callbackURL: "/auth/google/callback",
 };
 
-const GoogleStrategy = new Strategy(
-  options,
+const googleStrategy = new GoogleStrategy(
+  googleOptions,
   async (accessToken, refreshToken, profile, done) => {
     try {
       const user = await getUser(profile.id);
       if (user == undefined) {
-        const u: GoogleUser = {
-          google_id: profile.id,
+        const u: Users = {
+          id: profile.id,
           display_name: profile.displayName,
           email: profile?.emails?.[0].value ?? "email is not provided",
           profile_photo:
@@ -65,12 +98,13 @@ const GoogleStrategy = new Strategy(
   }
 );
 
-passport.use("skyes", GoogleStrategy);
+passport.use(githubStrategy);
+passport.use(googleStrategy);
 
 // tentukan apa yang akan disimpan di session
 // dalam hal ini saya memutuskan untuk menyimpan google_id
 passport.serializeUser(function (user, done) {
-  done(null, user.google_id);
+  done(null, user.id);
 });
 
 // jika user sudah login, bagaimana cara mendapatkan data user berdasarkan id yg disimpan di session tadi
@@ -97,6 +131,7 @@ app.use(
     credentials: true,
   })
 );
+
 app.use(
   session({
     store: new pgS({
@@ -108,7 +143,8 @@ app.use(
       httpOnly: true,
       sameSite: "lax",
       secure: false,
-      maxAge: 30 * 24 * 60 * 60 * 1000,
+      maxAge: 10 * 1000,
+      // maxAge: 30 * 24 * 60 * 60 * 1000,
     },
     saveUninitialized: false,
   })
@@ -127,13 +163,29 @@ app.get("/", async (req, res) => {
 });
 
 app.get(
+  "/auth/github",
+  passport.authenticate("github", { scope: ["user:email"] })
+);
+
+app.get(
   "/auth/google",
-  passport.authenticate("skyes", { scope: ["profile", "email"] })
+  passport.authenticate("google", { scope: ["profile", "email"] })
+);
+
+app.get(
+  "/auth/github/callback",
+  passport.authenticate("github", { failWithError: true }),
+  (req: Request, res: Response) => {
+    res.redirect("http://localhost:5173");
+  },
+  (err: Error, req: Request, res: Response, next: NextFunction) => {
+    res.redirect("http://localhost:5173/login");
+  }
 );
 
 app.get(
   "/auth/google/callback",
-  passport.authenticate("skyes", { failWithError: true }),
+  passport.authenticate("google", { failWithError: true }),
   (req: Request, res: Response) => {
     res.redirect("http://localhost:5173");
   },
@@ -145,7 +197,7 @@ app.get(
 app.get("/auth/logout", (req, res, next) => {
   req.logout((err) => {
     if (err) return next(err);
-    res.redirect("http://localhost:5173");
+    res.redirect("http://localhost:5173/login");
   });
 });
 
@@ -466,6 +518,6 @@ declare global {
     interface Request {
       users?: TokenPayload;
     }
-    interface User extends GoogleUser {}
+    interface User extends Users {}
   }
 }
