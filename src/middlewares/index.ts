@@ -19,7 +19,7 @@ export function authenticateJWT(
         res.status(401).json({ message: "invalid or expired token" });
         return;
       }
-      req.user = payload as TokenPayload;
+      req.users = payload as TokenPayload;
       next();
     });
   } else {

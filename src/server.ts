@@ -1,15 +1,16 @@
 import "dotenv/config";
 import express from "express";
-import type { Express } from "express";
+import type { Request, Response, NextFunction } from "express";
 import employeeService from "./services/employee.service";
 import bcrypt from "bcrypt";
 import jwt from "./utils/jwt";
-import { TokenPayload, Roles, Menu as M } from "./types";
+import { TokenPayload, Roles, Menu as M, GoogleUser } from "./types";
 import menuService from "./services/menu.service";
 import { buildMenuTree } from "./utils/buildMenu";
 import { authenticateJWT, validateData } from "./middlewares";
 import cors from "cors";
 import menuRepository from "./repositories/menu.repository";
+import { createUser, getUser } from "./repositories/user.repository";
 import {
   Login,
   Menu,
@@ -19,20 +20,145 @@ import {
   SelectRole,
 } from "./schemas";
 import roleService from "./services/role.service";
+import passport from "passport";
+import { Strategy, StrategyOptions } from "passport-google-oauth20";
+import session from "express-session";
+import pgSession from "connect-pg-simple";
+
+const pgS = pgSession(session);
 
 import swaggerUi from "swagger-ui-express";
 import { openApiDoc } from "./openapi-doc";
+import pool from "./infra/db";
+
+const options: StrategyOptions = {
+  clientID: process.env.GOOGLE_ID!,
+  clientSecret: process.env.GOOGLE_SECRET!,
+  callbackURL: "/auth/google/callback",
+};
+
+const GoogleStrategy = new Strategy(
+  options,
+  async (accessToken, refreshToken, profile, done) => {
+    try {
+      const user = await getUser(profile.id);
+      if (user == undefined) {
+        const u: GoogleUser = {
+          google_id: profile.id,
+          display_name: profile.displayName,
+          email: profile?.emails?.[0].value ?? "email is not provided",
+          profile_photo:
+            profile.photos?.[0].value ?? "profile photo is not provided",
+        };
+        const newUser = await createUser(u);
+        if (!newUser) {
+          throw new Error("failed to create user");
+        }
+        done(null, newUser);
+      } else {
+        return done(null, user);
+      }
+    } catch (error) {
+      console.log(error);
+      done(error);
+    }
+  }
+);
+
+passport.use("skyes", GoogleStrategy);
+
+// tentukan apa yang akan disimpan di session
+// dalam hal ini saya memutuskan untuk menyimpan google_id
+passport.serializeUser(function (user, done) {
+  done(null, user.google_id);
+});
+
+// jika user sudah login, bagaimana cara mendapatkan data user berdasarkan id yg disimpan di session tadi
+passport.deserializeUser(async function (id, done) {
+  try {
+    if (!id) throw new Error("deserialize");
+    const user = await getUser(String(id));
+    if (!user) {
+      throw new Error("user not found in session");
+    }
+
+    done(null, user);
+  } catch (error) {
+    done(error);
+  }
+});
 
 const app = express();
 
 app.use(express.json());
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+);
+app.use(
+  session({
+    store: new pgS({
+      pool,
+    }),
+    secret: "secret",
+    resave: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: false,
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    },
+    saveUninitialized: false,
+  })
+);
 
-app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDoc));
+app.use(passport.initialize());
+app.use(passport.session());
 
-app.get("/", (req, res) => {
+app.get("/", async (req, res) => {
+  const user = await getUser("hello");
+  if (user == undefined) {
+    res.send("user not fould!");
+    return;
+  }
   res.send("hello, world!");
 });
+
+app.get(
+  "/auth/google",
+  passport.authenticate("skyes", { scope: ["profile", "email"] })
+);
+
+app.get(
+  "/auth/google/callback",
+  passport.authenticate("skyes", { failWithError: true }),
+  (req: Request, res: Response) => {
+    res.redirect("http://localhost:5173");
+  },
+  (err: Error, req: Request, res: Response, next: NextFunction) => {
+    res.redirect("http://localhost:5173/login");
+  }
+);
+
+app.get("/auth/logout", (req, res, next) => {
+  req.logout((err) => {
+    if (err) return next(err);
+    res.redirect("http://localhost:5173");
+  });
+});
+
+app.get("/api/user", (req, res) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  res.json(req.user);
+});
+
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDoc));
 
 app.post("/register", validateData(Register), async (req, res) => {
   const { fullname, username, password } = req.body;
@@ -156,7 +282,7 @@ app.get("/roles/user", async (req, res) => {
 });
 
 app.get("/menus", authenticateJWT, async (req, res) => {
-  const { role_id } = req?.user as TokenPayload;
+  const { role_id } = req?.users as TokenPayload;
   try {
     if (!role_id) {
       res.status(400).send("no role_id provided");
@@ -171,7 +297,7 @@ app.get("/menus", authenticateJWT, async (req, res) => {
 });
 
 app.post("/menus", authenticateJWT, validateData(Menu), async (req, res) => {
-  const { role } = req.user!;
+  const { role } = req.users!;
   if (role != "admin") {
     res.status(401).send("only admin can create menu");
     return;
@@ -206,7 +332,7 @@ app.post(
   authenticateJWT,
   validateData(Permission),
   async (req, res) => {
-    const { role } = req.user!;
+    const { role } = req.users!;
     if (role != "admin") {
       res.status(401).send("only admin can add permission");
       return;
@@ -233,7 +359,7 @@ app.post(
 );
 
 app.delete("/menus/:id", authenticateJWT, async (req, res) => {
-  const { role } = req.user!;
+  const { role } = req.users!;
   if (role != "admin") {
     res.status(401).send("only admin can delete menu");
     return;
@@ -258,7 +384,7 @@ app.delete("/menus/:id", authenticateJWT, async (req, res) => {
 });
 
 app.patch("/menus/:id", authenticateJWT, async (req, res) => {
-  const { role } = req.user!;
+  const { role } = req.users!;
   if (role != "admin") {
     res.status(401).send("only admin can delete menu");
     return;
@@ -292,7 +418,7 @@ app.patch("/menus/:id", authenticateJWT, async (req, res) => {
 });
 
 app.post("/roles", authenticateJWT, async (req, res) => {
-  const { role } = req.user!;
+  const { role } = req.users!;
   if (role != "admin") {
     res.status(401).send("only admin can delete menu");
     return;
@@ -318,7 +444,7 @@ app.post("/roles", authenticateJWT, async (req, res) => {
 });
 
 app.get("/roles", authenticateJWT, async (req, res) => {
-  const { role } = req.user!;
+  const { role } = req.users!;
   if (role != "admin") {
     res.status(401).send("only admin can delete menu");
     return;
@@ -338,7 +464,8 @@ app.listen(3000, () => {
 declare global {
   namespace Express {
     interface Request {
-      user?: TokenPayload;
+      users?: TokenPayload;
     }
+    interface User extends GoogleUser {}
   }
 }
