@@ -10,99 +10,24 @@ import { buildMenuTree } from "./utils/buildMenu";
 import { authenticateJWT, validateData } from "./middlewares";
 import cors from "cors";
 import menuRepository from "./repositories/menu.repository";
-import { createUser, getUser } from "./repositories/user.repository";
+import { getUser } from "./repositories/user.repository";
 import { Login, Menu, Permission, Register, SelectRole } from "./schemas";
 import roleService from "./services/role.service";
 import passport from "passport";
-import {
-  Strategy as GoogleStrategy,
-  StrategyOptions as GoogleStrategyOptions,
-} from "passport-google-oauth20";
-import {
-  Strategy as GithubStrategy,
-  StrategyOptions as GithubStrategyOptions,
-} from "passport-github2";
+
+import githubStrategy from "./auth/github";
+import googleStrategy from "./auth/google";
+
 import session from "express-session";
-import pgSession from "connect-pg-simple";
-
-const pgS = pgSession(session);
-
+import { sessionOptions } from "./config";
 import swaggerUi from "swagger-ui-express";
 import { openApiDoc } from "./openapi-doc";
-import pool from "./infra/db";
-
-const githubOptions: GithubStrategyOptions = {
-  clientID: process.env.GITHUB_ID!,
-  clientSecret: process.env.GITHUB_SECRET!,
-  callbackURL: "/auth/github/callback",
-};
-
-const githubStrategy = new GithubStrategy(
-  githubOptions,
-  // @ts-ignore
-  async (accessToken, refreshToken, profile, done) => {
-    try {
-      if (!profile) throw new Error("profile not found");
-      const user = await getUser(profile.id);
-      if (user == undefined) {
-        const u: Users = {
-          id: profile.id,
-          display_name: profile.username,
-          email: profile.emails[0].value,
-          profile_photo: profile.photos[0].value,
-        };
-        console.log(u);
-        const newUser = await createUser(u);
-        if (!newUser) throw new Error("failed to create user");
-        done(null, newUser);
-      } else {
-        done(null, user);
-      }
-    } catch (error) {
-      done(error, null);
-    }
-  }
-);
-
-const googleOptions: GoogleStrategyOptions = {
-  clientID: process.env.GOOGLE_ID!,
-  clientSecret: process.env.GOOGLE_SECRET!,
-  callbackURL: "/auth/google/callback",
-};
-
-const googleStrategy = new GoogleStrategy(
-  googleOptions,
-  async (accessToken, refreshToken, profile, done) => {
-    try {
-      const user = await getUser(profile.id);
-      if (user == undefined) {
-        const u: Users = {
-          id: profile.id,
-          display_name: profile.displayName,
-          email: profile?.emails?.[0].value ?? "email is not provided",
-          profile_photo:
-            profile.photos?.[0].value ?? "profile photo is not provided",
-        };
-        const newUser = await createUser(u);
-        if (!newUser) {
-          throw new Error("failed to create user");
-        }
-        done(null, newUser);
-      } else {
-        return done(null, user);
-      }
-    } catch (error) {
-      console.log(error);
-      done(error);
-    }
-  }
-);
 
 passport.use(githubStrategy);
 passport.use(googleStrategy);
 
 // tentukan apa yang akan disimpan di session
-// dalam hal ini saya memutuskan untuk menyimpan google_id
+// dalam hal ini saya memutuskan untuk menyimpan id
 passport.serializeUser(function (user, done) {
   done(null, user.id);
 });
@@ -132,23 +57,7 @@ app.use(
   })
 );
 
-app.use(
-  session({
-    store: new pgS({
-      pool,
-    }),
-    secret: "secret",
-    resave: false,
-    cookie: {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: false,
-      maxAge: 10 * 1000,
-      // maxAge: 30 * 24 * 60 * 60 * 1000,
-    },
-    saveUninitialized: false,
-  })
-);
+app.use(session(sessionOptions));
 
 app.use(passport.initialize());
 app.use(passport.session());

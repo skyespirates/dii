@@ -59,4 +59,5 @@ export type Users = {
   display_name: string;
   email: string;
   profile_photo: string;
+  provider: "google" | "github";
 };
