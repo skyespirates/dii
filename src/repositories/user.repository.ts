@@ -23,3 +23,9 @@ export async function createUser(u: Users): Promise<Users> {
   );
   return result.rows[0];
 }
+
+export async function getAllUsers(id: string): Promise<Users[]> {
+  const query = `SELECT id, display_name, email, profile_photo, provider FROM users  WHERE id != $1`;
+  const result = await pool.query<Users>(query, [id]);
+  return result.rows;
+}

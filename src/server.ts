@@ -14,6 +14,9 @@ import { getUser } from "./repositories/user.repository";
 import { Login, Menu, Permission, Register, SelectRole } from "./schemas";
 import roleService from "./services/role.service";
 import passport from "passport";
+import { createServer } from "node:http";
+import { Server } from "socket.io";
+import { getAllUsers } from "./repositories/user.repository";
 
 import githubStrategy from "./auth/github";
 import googleStrategy from "./auth/google";
@@ -49,7 +52,15 @@ passport.deserializeUser(async function (id, done) {
 
 const app = express();
 
-app.use(express.json());
+const server = createServer(app);
+
+type Message = {
+  id: number;
+  message: string;
+};
+
+const serverId = 2;
+
 app.use(
   cors({
     origin: "http://localhost:5173",
@@ -57,10 +68,58 @@ app.use(
   })
 );
 
-app.use(session(sessionOptions));
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:5173",
+    credentials: true,
+  },
+});
 
+const sessionMiddleware = session(sessionOptions);
+
+app.use(express.json());
+app.use(sessionMiddleware);
 app.use(passport.initialize());
 app.use(passport.session());
+
+const wrap = (middleware: any) => (socket: any, next: any) =>
+  middleware(socket.request, {} as any, next);
+
+io.use(wrap(sessionMiddleware));
+io.use(wrap(passport.initialize()));
+io.use(wrap(passport.session()));
+
+io.use((socket, next) => {
+  const user = socket.request.user as Users | undefined;
+
+  if (!user) {
+    return next(new Error("Unauthorized"));
+  }
+
+  socket.user = user; // attach user to socket
+  next();
+});
+
+io.on("connection", (socket) => {
+  console.log("user connected 🚀");
+
+  socket.on("message", (msg) => {
+    io.emit("message", msg);
+  });
+  socket.on("disconnect", () => {
+    console.log("disconnected! 🥴");
+  });
+});
+
+app.get("/chat", (req, res) => {
+  const msg: Message = {
+    id: serverId,
+    message: "hello world! 🥴",
+  };
+  io.emit("message", msg);
+
+  res.send("message sent");
+});
 
 app.get("/", async (req, res) => {
   const user = await getUser("hello");
@@ -110,13 +169,28 @@ app.get("/auth/logout", (req, res, next) => {
   });
 });
 
+app.get("/users", async (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json("Unauthorized!");
+  }
+  const users = await getAllUsers(req.user.id);
+  const resp = { users };
+  res.json(resp);
+});
+
 app.get("/api/user", (req, res) => {
   if (!req.isAuthenticated()) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
+    return res.status(401).json("Unauthorized!");
   }
 
-  res.json(req.user);
+  const payload: TokenPayload = {
+    employee_id: req.user.id,
+  };
+  const resp = {
+    user: req.user,
+    token: jwt.generateToken(payload),
+  };
+  res.json(resp);
 });
 
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDoc));
@@ -418,7 +492,7 @@ app.get("/roles", authenticateJWT, async (req, res) => {
   }
 });
 
-app.listen(3000, () => {
+server.listen(3000, () => {
   console.log("server running on port 3000");
 });
 
@@ -428,5 +502,17 @@ declare global {
       users?: TokenPayload;
     }
     interface User extends Users {}
+  }
+}
+
+declare module "http" {
+  interface IncomingMessage {
+    user?: Users;
+  }
+}
+
+declare module "socket.io" {
+  interface Socket {
+    user?: Users;
   }
 }

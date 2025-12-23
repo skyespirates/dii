@@ -14,7 +14,7 @@ export const sessionOptions: SessionOptions = {
     httpOnly: true,
     sameSite: "lax",
     secure: false,
-    maxAge: 10 * 1000,
+    maxAge: 60 * 60 * 1000,
     // maxAge: 30 * 24 * 60 * 60 * 1000,
   },
   saveUninitialized: false,

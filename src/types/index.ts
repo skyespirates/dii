@@ -7,7 +7,7 @@ export interface Employee {
 }
 
 export interface TokenPayload {
-  employee_id: number;
+  employee_id: number | string;
   role_id?: number;
   role?: string;
   iat?: number;
