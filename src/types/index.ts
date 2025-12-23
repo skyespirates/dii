@@ -7,7 +7,7 @@ export interface Employee {
 }
 
 export interface TokenPayload {
-  employee_id: number;
+  employee_id: number | string;
   role_id?: number;
   role?: string;
   iat?: number;
@@ -59,4 +59,5 @@ export type Users = {
   display_name: string;
   email: string;
   profile_photo: string;
+  provider: "google" | "github";
 };
