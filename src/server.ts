@@ -24,7 +24,7 @@ import googleStrategy from "./auth/google";
 import session from "express-session";
 import { sessionOptions } from "./config";
 import swaggerUi from "swagger-ui-express";
-import { openApiDoc } from "./openapi-doc";
+import { openApiDoc } from "./docs/openapi-doc";
 
 passport.use(githubStrategy);
 passport.use(googleStrategy);

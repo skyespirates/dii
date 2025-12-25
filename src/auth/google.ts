@@ -1,10 +1,11 @@
 import { Strategy, StrategyOptions } from "passport-google-oauth20";
 import { createUser, getUser } from "../repositories/user.repository";
 import { Users } from "../types";
+import { env } from "../configs/env";
 
 const googleOptions: StrategyOptions = {
-  clientID: process.env.GOOGLE_ID!,
-  clientSecret: process.env.GOOGLE_SECRET!,
+  clientID: env.GOOGLE_ID,
+  clientSecret: env.GOOGLE_SECRET,
   callbackURL: "/auth/google/callback",
 };
 

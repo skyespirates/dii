@@ -1,10 +1,10 @@
 import { Strategy, StrategyOptions } from "passport-github2";
 import { createUser, getUser } from "../repositories/user.repository";
 import { Users } from "../types";
-
+import { env } from "../configs/env";
 const githubOptions: StrategyOptions = {
-  clientID: process.env.GITHUB_ID!,
-  clientSecret: process.env.GITHUB_SECRET!,
+  clientID: env.GITHUB_ID,
+  clientSecret: env.GITHUB_SECRET,
   callbackURL: "/auth/github/callback",
 };
 

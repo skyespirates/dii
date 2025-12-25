@@ -2,13 +2,14 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { TokenPayload } from "../types";
 import { z, ZodError } from "zod";
+import { env } from "../configs/env";
 
 export function authenticateJWT(
   req: Request,
   res: Response,
   next: NextFunction
 ) {
-  const secret_key = process.env.JWT_SECRET;
+  const secret_key = env.JWT_SECRET;
   if (!secret_key) {
     throw new Error("JWT_SECRET is not set");
   }

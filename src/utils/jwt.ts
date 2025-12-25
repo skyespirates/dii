@@ -1,12 +1,13 @@
 import jwt from "jsonwebtoken";
 import { TokenPayload } from "../types";
+import { env } from "../configs/env";
 
-const secret = process.env.JWT_SECRET!;
+const secret = env.JWT_SECRET;
 if (!secret) {
   throw new Error("env: JWT_SECRET is unset");
 }
 
-const expiresIn = process.env.JWT_EXPIRED_IN!;
+const expiresIn = env.JWT_EXPIRED_IN;
 if (!expiresIn) {
   throw new Error("env: JWT_EXPIRED_IN is unset");
 }
