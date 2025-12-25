@@ -1,8 +1,6 @@
 import { z } from "zod";
-import { Menu } from ".";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 
-// Ensure you call this at the start
 extendZodWithOpenApi(z);
 
 export interface Menu {
@@ -47,4 +45,9 @@ export const MenuSchemaResponse = z
   })
   .openapi({ description: "Response structure for the menu tree." });
 
-export type MenuType = z.infer<typeof Menu>;
+export const MenuBodySchema = z.object({
+  name: z.string().openapi({ example: "Menu 2.2.3.2" }),
+  url: z.string().openapi({ example: "/menu-2.2.3.2" }),
+  sort_order: z.number().openapi({ example: 1 }),
+  parent_id: z.number().nullable().openapi({ example: 18 }),
+});

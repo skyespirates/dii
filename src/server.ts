@@ -11,7 +11,6 @@ import { authenticateJWT, validateData } from "./middlewares";
 import cors from "cors";
 import menuRepository from "./repositories/menu.repository";
 import { getUser } from "./repositories/user.repository";
-import { Login, Menu, Permission, Register, SelectRole } from "./schemas";
 import roleService from "./services/role.service";
 import passport from "passport";
 import { createServer } from "node:http";
@@ -24,7 +23,12 @@ import googleStrategy from "./auth/google";
 import session from "express-session";
 import { sessionOptions } from "./config";
 import swaggerUi from "swagger-ui-express";
-import { openApiDoc } from "./docs/openapi-doc";
+import { generateApiDocumentation } from "./docs/openapi-doc";
+import { RegisterBodySchema } from "./schemas/register.schema";
+import { LoginPayloadSchema } from "./schemas/login.schema";
+import { RoleSelectBodySchema } from "./schemas/role_select.schema";
+import { MenuBodySchema } from "./schemas/menu.schema";
+import { PermissionBodySchema } from "./schemas/permission.schema";
 
 passport.use(githubStrategy);
 passport.use(googleStrategy);
@@ -193,9 +197,9 @@ app.get("/api/user", (req, res) => {
   res.json(resp);
 });
 
-app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDoc));
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(generateApiDocumentation()));
 
-app.post("/register", validateData(Register), async (req, res) => {
+app.post("/register", validateData(RegisterBodySchema), async (req, res) => {
   const { fullname, username, password } = req.body;
   try {
     const insertedId = await employeeService.registerEmployee(
@@ -213,7 +217,7 @@ app.post("/register", validateData(Register), async (req, res) => {
   }
 });
 
-app.post("/login", validateData(Login), async (req, res) => {
+app.post("/login", validateData(LoginPayloadSchema), async (req, res) => {
   const { username, password } = req.body;
   try {
     const employee = await employeeService.getByUsername(username);
@@ -273,34 +277,38 @@ app.post("/login", validateData(Login), async (req, res) => {
   }
 });
 
-app.post("/roles/select", validateData(SelectRole), async (req, res) => {
-  const { employee_id, role_id } = req.body;
+app.post(
+  "/roles/select",
+  validateData(RoleSelectBodySchema),
+  async (req, res) => {
+    const { employee_id, role_id } = req.body;
 
-  try {
-    const emp = await employeeService.getRole(employee_id, role_id);
-    if (emp == null) {
-      res.status(400).json({ message: "failed to get employee role" });
+    try {
+      const emp = await employeeService.getRole(employee_id, role_id);
+      if (emp == null) {
+        res.status(400).json({ message: "failed to get employee role" });
+        return;
+      }
+      const payload: TokenPayload = {
+        employee_id: emp.employee_id,
+        role_id: emp.role_id,
+        role: emp.role_name,
+      };
+
+      const token = jwt.generateToken(payload);
+
+      const data = {
+        message: "login successfully",
+        access_token: token,
+      };
+
+      res.json(data);
       return;
+    } catch (error) {
+      res.status(500).json({ message: "failed to get employee role", error });
     }
-    const payload: TokenPayload = {
-      employee_id: emp.employee_id,
-      role_id: emp.role_id,
-      role: emp.role_name,
-    };
-
-    const token = jwt.generateToken(payload);
-
-    const data = {
-      message: "login successfully",
-      access_token: token,
-    };
-
-    res.json(data);
-    return;
-  } catch (error) {
-    res.status(500).json({ message: "failed to get employee role", error });
   }
-});
+);
 
 app.get("/roles/user", async (req, res) => {
   try {
@@ -331,41 +339,48 @@ app.get("/menus", authenticateJWT, async (req, res) => {
   }
 });
 
-app.post("/menus", authenticateJWT, validateData(Menu), async (req, res) => {
-  const { role } = req.users!;
-  if (role != "admin") {
-    res.status(401).send("only admin can create menu");
-    return;
-  }
-
-  const { name, parent_id, url, sort_order } = req.body;
-  try {
-    const insertedId = await menuRepository.addMenu(
-      name,
-      parent_id,
-      url,
-      sort_order
-    );
-    if (insertedId == -1) {
-      res.status(400).json({
-        status: "failed",
-        message: "parent_id is invalid or not found",
-      });
+app.post(
+  "/menus",
+  authenticateJWT,
+  validateData(MenuBodySchema),
+  async (req, res) => {
+    const { role } = req.users!;
+    if (role != "admin") {
+      res.status(401).send("only admin can create menu");
       return;
     }
-    res.status(201).json({
-      message: "menu inserted successfully",
-      insertedId,
-    });
-  } catch (error) {
-    res.status(500).json({ status: "error", message: "internal server error" });
+
+    const { name, parent_id, url, sort_order } = req.body;
+    try {
+      const insertedId = await menuRepository.addMenu(
+        name,
+        parent_id,
+        url,
+        sort_order
+      );
+      if (insertedId == -1) {
+        res.status(400).json({
+          status: "failed",
+          message: "parent_id is invalid or not found",
+        });
+        return;
+      }
+      res.status(201).json({
+        message: "menu inserted successfully",
+        insertedId,
+      });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ status: "error", message: "internal server error" });
+    }
   }
-});
+);
 
 app.post(
   "/permissions",
   authenticateJWT,
-  validateData(Permission),
+  validateData(PermissionBodySchema),
   async (req, res) => {
     const { role } = req.users!;
     if (role != "admin") {

@@ -28,29 +28,6 @@ const UserSchema = z
     description: "A user object including their roles.",
   });
 
-// 3. Define the final, outer wrapper: the API Response object
-export const ApiResponseSchema = z
-  .object({
-    status: z.literal("success").openapi({
-      description: "The status of the API request.",
-      example: "success",
-    }),
-    message: z.string().openapi({
-      description: "A descriptive message about the operation.",
-      example: "get all roles for all users",
-    }),
-    // Nest the UserSchema array inside the main response object
-    users: z
-      .array(UserSchema)
-      .min(1, { message: "The users array cannot be empty" })
-      .openapi({
-        description: "An array of user objects.",
-      }),
-  })
-  .openapi({
-    description:
-      "The complete API response structure for fetching users and roles.",
-  });
-
-// Infer the TypeScript type from the schema for maximum type safety
-export type ApiResponse = z.infer<typeof ApiResponseSchema>;
+export const UserRolesSchema = z.object({
+  users: z.array(UserSchema),
+});

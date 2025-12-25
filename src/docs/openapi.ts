@@ -1,19 +1,21 @@
 import { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { ApiResponseSchema } from "./schemas/user_roles.schema";
-import { MenuSchemaResponse } from "./schemas/menu.schema";
+import { UserRolesSchema } from "../schemas/user_roles.schema";
+import { MenuBodySchema, MenuSchemaResponse } from "../schemas/menu.schema";
 import {
   LoginPayloadSchema,
   LoginResponseSchema,
-} from "./schemas/login.schema";
-import {
-  AddMenuResponseSchema,
-  Menu,
-  Permission,
-  PermissionResponse,
-  RoleSchema,
-  SelectRole,
-} from "./schemas";
+} from "../schemas/login.schema";
 import z from "zod";
+import {
+  RegisterBodySchema,
+  RegisterResponseSchema,
+} from "../schemas/register.schema";
+import {
+  RoleSelectBodySchema,
+  RoleSelectResponseSchema,
+} from "../schemas/role_select.schema";
+import { PermissionBodySchema } from "../schemas/permission.schema";
+import { RoleSchema } from "../schemas/role.schema";
 
 export const registry = new OpenAPIRegistry();
 
@@ -27,7 +29,25 @@ registry.registerPath({
   method: "post",
   path: "/register",
   tags: ["user"],
-  responses: {},
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: RegisterBodySchema,
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "",
+      content: {
+        "application/json": {
+          schema: RegisterResponseSchema,
+        },
+      },
+    },
+  },
 });
 
 registry.registerPath({
@@ -59,12 +79,13 @@ registry.registerPath({
   method: "post",
   path: "/roles/select",
   tags: ["roles"],
-  description: "generate token based on user selected role",
+  description: "generate token, based on user selected role",
+  security: [{ bearerAuth: [] }],
   request: {
     body: {
       content: {
         "application/json": {
-          schema: SelectRole,
+          schema: RoleSelectBodySchema,
         },
       },
     },
@@ -74,11 +95,7 @@ registry.registerPath({
       description: "",
       content: {
         "application/json": {
-          schema: LoginResponseSchema,
-          example: {
-            message: "login successfully",
-            access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
-          },
+          schema: RoleSelectResponseSchema,
         },
       },
     },
@@ -90,12 +107,13 @@ registry.registerPath({
   path: "/roles/user",
   tags: ["roles"],
   description: "Get roles of every user",
+  security: [{ bearerAuth: [] }],
   responses: {
     200: {
       description: "",
       content: {
         "application/json": {
-          schema: ApiResponseSchema,
+          schema: UserRolesSchema,
         },
       },
     },
@@ -130,17 +148,21 @@ registry.registerPath({
     body: {
       content: {
         "application/json": {
-          schema: Menu,
+          schema: MenuBodySchema,
         },
       },
     },
   },
   responses: {
-    200: {
+    201: {
       description: "created new menu",
       content: {
         "application/json": {
-          schema: AddMenuResponseSchema,
+          schema: z.object({
+            message: z
+              .string()
+              .openapi({ example: "menu created successfully" }),
+          }),
         },
       },
     },
@@ -157,17 +179,19 @@ registry.registerPath({
     body: {
       content: {
         "application/json": {
-          schema: Permission,
+          schema: PermissionBodySchema,
         },
       },
     },
   },
   responses: {
-    200: {
+    201: {
       description: "",
       content: {
         "application/json": {
-          schema: PermissionResponse,
+          schema: z.object({
+            message: z.string().openapi({ example: "permission added" }),
+          }),
         },
       },
     },
@@ -229,12 +253,11 @@ registry.registerPath({
     },
   },
   responses: {
-    200: {
+    201: {
       description: "success created new role",
       content: {
         "application/json": {
           schema: z.object({
-            status: z.string().openapi({ example: "success" }),
             message: z
               .string()
               .openapi({ example: "role created successfully" }),
@@ -257,8 +280,6 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: z.object({
-            status: z.string().openapi({ example: "success" }),
-            message: z.string().openapi({ example: "get roles successfully" }),
             roles: z.array(RoleSchema),
           }),
         },

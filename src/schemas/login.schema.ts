@@ -15,7 +15,6 @@ const RoleSchema = z.object({
 });
 
 export const LoginResponseSchema = z.object({
-  message: z.string().openapi({ example: "login successfully" }),
   access_token: z
     .string()
     .openapi({ example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9" }),
