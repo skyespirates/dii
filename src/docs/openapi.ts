@@ -39,7 +39,7 @@ registry.registerPath({
     },
   },
   responses: {
-    201: {
+    200: {
       description: "",
       content: {
         "application/json": {

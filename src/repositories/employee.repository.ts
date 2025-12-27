@@ -2,9 +2,20 @@ import logger from "../utils/logger";
 import { EmployeeRole, EmployeeRow } from "../types";
 import { PoolClient } from "pg";
 import pool from "../infra/db";
+import { HttpError } from "../utils/error";
 
 interface InsertedResult {
   employee_id: number;
+}
+
+type PostgresError = {
+  code: string;
+  constraint: string;
+  detail: string;
+};
+
+function isPostgresError(error: unknown): error is PostgresError {
+  return typeof error == "object" && error != null && "code" in error;
 }
 
 async function create(
@@ -12,19 +23,18 @@ async function create(
   fullname: string,
   username: string,
   password: string
-): Promise<number | null> {
+): Promise<number> {
   const query =
     "INSERT INTO employees (fullname, username, password) VALUES ($1, $2, $3) RETURNING employee_id";
   const args = [fullname, username, password];
   try {
     const result = await conn.query<InsertedResult>(query, args);
-    if (result.rows.length == 0) {
-      return null;
-    }
     return result.rows[0].employee_id;
   } catch (error) {
-    logger.error(error);
-    throw new Error("employee repository: failed to create employee");
+    if (isPostgresError(error) && error.code == "23505") {
+      throw new HttpError(409, "error", "username already exists");
+    }
+    throw error;
   }
 }
 

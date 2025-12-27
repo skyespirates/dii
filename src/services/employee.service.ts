@@ -9,7 +9,7 @@ async function registerEmployee(
   fullname: string,
   username: string,
   password: string
-): Promise<number | null> {
+): Promise<number> {
   const conn = await pool.connect();
   try {
     await conn.query("BEGIN");
@@ -21,10 +21,6 @@ async function registerEmployee(
       hashed_password
     );
 
-    if (employee_id == null) {
-      return null;
-    }
-
     await roleRepository.setEmployeeRole(conn, employee_id);
 
     await conn.query("COMMIT");
@@ -32,8 +28,7 @@ async function registerEmployee(
     return employee_id;
   } catch (error) {
     await conn.query("ROLLBACK");
-    logger.error(error);
-    throw new Error("service: failed to register employee");
+    throw error;
   } finally {
     conn.release();
   }
@@ -48,8 +43,7 @@ async function getByUsername(username: string) {
     );
     return employee;
   } catch (error) {
-    logger.error(error);
-    throw new Error("service: failed to login");
+    throw error;
   }
 }
 

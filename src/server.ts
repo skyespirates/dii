@@ -29,6 +29,7 @@ import { LoginPayloadSchema } from "./schemas/login.schema";
 import { RoleSelectBodySchema } from "./schemas/role_select.schema";
 import { MenuBodySchema } from "./schemas/menu.schema";
 import { PermissionBodySchema } from "./schemas/permission.schema";
+import { HttpError } from "./utils/error";
 
 passport.use(githubStrategy);
 passport.use(googleStrategy);
@@ -201,20 +202,18 @@ app.use("/docs", swaggerUi.serve, swaggerUi.setup(generateApiDocumentation()));
 
 app.post("/register", validateData(RegisterBodySchema), async (req, res) => {
   const { fullname, username, password } = req.body;
-  try {
-    const insertedId = await employeeService.registerEmployee(
-      fullname,
-      username,
-      password
-    );
-    const data = {
-      message: "employee registered successfully",
-      employee_id: insertedId,
-    };
-    res.status(201).json(data);
-  } catch (error) {
-    res.status(500).json({ status: "error", error });
-  }
+  const insertedId = await employeeService.registerEmployee(
+    fullname,
+    username,
+    password
+  );
+  const payload: TokenPayload = {
+    employee_id: insertedId,
+    role_id: 1,
+  };
+  const token = jwt.generateToken(payload);
+
+  res.json({ access_token: token });
 });
 
 app.post("/login", validateData(LoginPayloadSchema), async (req, res) => {
@@ -505,6 +504,31 @@ app.get("/roles", authenticateJWT, async (req, res) => {
   } catch (error) {
     res.send(500).json({ message: "error", error });
   }
+});
+
+// handle 404 not found
+app.use((req, res, next) => {
+  const error = new HttpError(
+    404,
+    "error",
+    `cant find ${req.originalUrl} on the server 🥴🥴🥴`
+  );
+  next(error);
+});
+
+// global error handler
+app.use((error: unknown, req: Request, res: Response, next: NextFunction) => {
+  if (error instanceof HttpError) {
+    res
+      .status(error.statusCode)
+      .json({ status: error.status, message: error.message });
+
+    return;
+  }
+
+  res
+    .status(500)
+    .json({ status: "error", message: "internal server error 🤮🤮🤮" });
 });
 
 server.listen(3000, () => {
