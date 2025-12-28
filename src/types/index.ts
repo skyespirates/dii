@@ -6,9 +6,15 @@ export interface Employee {
   is_active: string;
 }
 
+export type Role = {
+  role_id: number;
+  name: string;
+};
+
 export interface TokenPayload {
   employee_id: number | string;
   role_id?: number;
+  roles?: number[];
   role?: string;
   iat?: number;
   exp?: number;

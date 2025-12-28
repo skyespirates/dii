@@ -4,7 +4,6 @@ import { z } from "zod";
 extendZodWithOpenApi(z);
 
 export const RoleSelectBodySchema = z.object({
-  employee_id: z.number().openapi({ example: 111 }),
   role_id: z.number().openapi({ example: 222 }),
 });
 

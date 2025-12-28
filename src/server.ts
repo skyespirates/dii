@@ -4,10 +4,10 @@ import type { Request, Response, NextFunction } from "express";
 import employeeService from "./services/employee.service";
 import bcrypt from "bcrypt";
 import jwt from "./utils/jwt";
-import { TokenPayload, Roles, Menu as M, Users } from "./types";
+import { TokenPayload, Roles, Menu as M, Users, Role } from "./types";
 import menuService from "./services/menu.service";
 import { buildMenuTree } from "./utils/buildMenu";
-import { authenticateJWT, validateData } from "./middlewares";
+import { authenticateJWT, isMultiRole, validateData } from "./middlewares";
 import cors from "cors";
 import menuRepository from "./repositories/menu.repository";
 import { getUser } from "./repositories/user.repository";
@@ -244,7 +244,6 @@ app.post("/login", validateData(LoginPayloadSchema), async (req, res) => {
       const token = jwt.generateToken(payload);
 
       const data = {
-        message: "login single role successfully",
         access_token: token,
       };
 
@@ -253,6 +252,7 @@ app.post("/login", validateData(LoginPayloadSchema), async (req, res) => {
     }
 
     let roles: Roles[] = [];
+    const r: number[] = [];
 
     for (let e of employee) {
       const role = {
@@ -260,12 +260,14 @@ app.post("/login", validateData(LoginPayloadSchema), async (req, res) => {
         name: e.role_name,
       };
       roles.push(role);
+      r.push(role.role_id);
     }
+
+    payload.roles = r;
 
     const token = jwt.generateToken(payload);
 
     const result = {
-      message: "select role",
       access_token: token,
       roles,
     };
@@ -278,12 +280,15 @@ app.post("/login", validateData(LoginPayloadSchema), async (req, res) => {
 
 app.post(
   "/roles/select",
+  authenticateJWT,
   validateData(RoleSelectBodySchema),
+  isMultiRole,
   async (req, res) => {
-    const { employee_id, role_id } = req.body;
+    const { employee_id } = req.users!;
+    const { role_id } = req.body;
 
     try {
-      const emp = await employeeService.getRole(employee_id, role_id);
+      const emp = await employeeService.getRole(Number(employee_id), role_id);
       if (emp == null) {
         res.status(400).json({ message: "failed to get employee role" });
         return;
