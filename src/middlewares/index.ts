@@ -4,7 +4,6 @@ import { TokenPayload } from "../types";
 import { z, ZodError } from "zod";
 import { env } from "../configs/env";
 import { HttpError } from "../utils/error";
-import logger from "../utils/logger";
 
 export function authenticateJWT(
   req: Request,
@@ -77,4 +76,14 @@ export function validateData(schema: z.ZodObject<any, any>) {
       }
     }
   };
+}
+
+export function isAdmin(req: Request, res: Response, next: NextFunction) {
+  const { role_id } = req.users!;
+  if (role_id != 2) {
+    const error = new HttpError(403, "fail", "admin only");
+    next(error);
+    return;
+  }
+  next();
 }

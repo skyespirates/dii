@@ -7,7 +7,12 @@ import jwt from "./utils/jwt";
 import { TokenPayload, Roles, Menu as M, Users, Role } from "./types";
 import menuService from "./services/menu.service";
 import { buildMenuTree } from "./utils/buildMenu";
-import { authenticateJWT, isMultiRole, validateData } from "./middlewares";
+import {
+  authenticateJWT,
+  isAdmin,
+  isMultiRole,
+  validateData,
+} from "./middlewares";
 import cors from "cors";
 import menuRepository from "./repositories/menu.repository";
 import { getUser } from "./repositories/user.repository";
@@ -127,11 +132,11 @@ app.get("/chat", (req, res) => {
 });
 
 app.get("/", async (req, res) => {
-  const user = await getUser("hello");
-  if (user == undefined) {
-    res.send("user not fould!");
-    return;
-  }
+  // const user = await getUser("hello");
+  // if (user == undefined) {
+  //   res.send("user not fould!");
+  //   return;
+  // }
   res.send("hello, world!");
 });
 
@@ -347,13 +352,8 @@ app.post(
   "/menus",
   authenticateJWT,
   validateData(MenuBodySchema),
+  isAdmin,
   async (req, res) => {
-    const { role } = req.users!;
-    if (role != "admin") {
-      res.status(401).send("only admin can create menu");
-      return;
-    }
-
     const { name, parent_id, url, sort_order } = req.body;
     try {
       const insertedId = await menuRepository.addMenu(
@@ -385,13 +385,8 @@ app.post(
   "/permissions",
   authenticateJWT,
   validateData(PermissionBodySchema),
+  isAdmin,
   async (req, res) => {
-    const { role } = req.users!;
-    if (role != "admin") {
-      res.status(401).send("only admin can add permission");
-      return;
-    }
-
     const { role_id, menu_id } = req.body;
     try {
       const succeed = await menuService.addMenuPermission(role_id, menu_id);
@@ -412,13 +407,7 @@ app.post(
   }
 );
 
-app.delete("/menus/:id", authenticateJWT, async (req, res) => {
-  const { role } = req.users!;
-  if (role != "admin") {
-    res.status(401).send("only admin can delete menu");
-    return;
-  }
-
+app.delete("/menus/:id", authenticateJWT, isAdmin, async (req, res) => {
   const { id } = req.params;
   const menu_id = parseInt(id);
   try {
@@ -437,12 +426,7 @@ app.delete("/menus/:id", authenticateJWT, async (req, res) => {
   }
 });
 
-app.patch("/menus/:id", authenticateJWT, async (req, res) => {
-  const { role } = req.users!;
-  if (role != "admin") {
-    res.status(401).send("only admin can delete menu");
-    return;
-  }
+app.patch("/menus/:id", authenticateJWT, isAdmin, async (req, res) => {
   const { id } = req.params;
   const menu_id = parseInt(id);
   const { name, url, sort_order } = req.body;
@@ -471,13 +455,7 @@ app.patch("/menus/:id", authenticateJWT, async (req, res) => {
   }
 });
 
-app.post("/roles", authenticateJWT, async (req, res) => {
-  const { role } = req.users!;
-  if (role != "admin") {
-    res.status(401).send("only admin can delete menu");
-    return;
-  }
-
+app.post("/roles", authenticateJWT, isAdmin, async (req, res) => {
   const { name } = req.body;
   try {
     const created = await roleService.createRole(name);
@@ -497,12 +475,7 @@ app.post("/roles", authenticateJWT, async (req, res) => {
   }
 });
 
-app.get("/roles", authenticateJWT, async (req, res) => {
-  const { role } = req.users!;
-  if (role != "admin") {
-    res.status(401).send("only admin can delete menu");
-    return;
-  }
+app.get("/roles", authenticateJWT, isAdmin, async (req, res) => {
   try {
     const roles = await roleService.getRole();
     res.json({ status: "success", message: "get roles successfully", roles });

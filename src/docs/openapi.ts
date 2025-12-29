@@ -28,6 +28,12 @@ registry.registerComponent("securitySchemes", "bearerAuth", {
 registry.registerPath({
   method: "post",
   path: "/register",
+  summary: "Create new account",
+  description: `Newly created account role is set to be staff\n
+  and only super user are allowed to assign role\n
+  1. aaaa
+  2. bbbb
+  `,
   tags: ["user"],
   request: {
     body: {
@@ -54,6 +60,8 @@ registry.registerPath({
   method: "post",
   path: "/login",
   tags: ["auth"],
+  description: "description 🥴",
+  summary: "summary 🤮",
   request: {
     body: {
       content: {
@@ -79,6 +87,7 @@ registry.registerPath({
   method: "post",
   path: "/roles/select",
   tags: ["roles"],
+  summary: "users that have multiple roles can choose their role",
   description: "generate token, based on user selected role",
   security: [{ bearerAuth: [] }],
   request: {
@@ -106,6 +115,7 @@ registry.registerPath({
   method: "get",
   path: "/roles/user",
   tags: ["roles"],
+  summary: "get list of roles of every user",
   description: "Get roles of every user",
   security: [{ bearerAuth: [] }],
   responses: {
@@ -124,6 +134,7 @@ registry.registerPath({
   method: "get",
   path: "/menus",
   tags: ["menus"],
+  summary: "for this user, get all of his roles",
   description: "Get all menus that assigned to current role",
   security: [{ bearerAuth: [] }],
   responses: {
@@ -142,6 +153,7 @@ registry.registerPath({
   method: "post",
   path: "/menus",
   tags: ["menus"],
+  summary: "super user can register or create new menu",
   description: "Create menu",
   security: [{ bearerAuth: [] }],
   request: {
@@ -173,6 +185,7 @@ registry.registerPath({
   method: "post",
   path: "/permissions",
   tags: ["permissions"],
+  summary: "set this role to be able to access this menu",
   description: "Allowing which menu can access by a role",
   security: [{ bearerAuth: [] }],
   request: {
@@ -202,6 +215,7 @@ registry.registerPath({
   method: "delete",
   path: "/menus/{id}",
   tags: ["menus"],
+  summary: "delete menu based on provided id",
   description: "Delete menu",
   security: [{ bearerAuth: [] }],
   request: {
@@ -230,6 +244,7 @@ registry.registerPath({
   method: "patch",
   path: "/menus",
   tags: ["menus"],
+  summary: "edit menu based on provided id",
   description: "Edit menu",
   security: [{ bearerAuth: [] }],
   responses: {},
@@ -240,6 +255,7 @@ registry.registerPath({
   path: "/roles",
   tags: ["roles"],
   security: [{ bearerAuth: [] }],
+  summary: "create or register a new menu",
   description: "create new roles",
   request: {
     body: {
@@ -272,6 +288,7 @@ registry.registerPath({
   method: "get",
   path: "/roles",
   tags: ["roles"],
+  summary: "get list of all available roles",
   description: "get role list",
   security: [{ bearerAuth: [] }],
   responses: {
